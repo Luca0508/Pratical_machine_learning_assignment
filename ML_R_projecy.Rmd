@@ -1,0 +1,91 @@
+---
+title: "ML_R_project"
+author: "Yuchen Hsiao"
+date: "10/24/2020"
+output: html_document
+---
+
+```{r}
+library(caret)
+library(ggplot2)
+library(forecast)
+library(rpart)
+```
+
+
+load the training and testing data
+
+```{r}
+url_train = "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+url_test = "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+
+# Download Datasets
+train <- read.csv(url(url_train), na.strings=c("NA","#DIV/0!", ""))
+test  <- read.csv(url(url_test), na.strings=c("NA","#DIV/0!", ""))
+
+
+```
+
+remove the columns, which 90% of value is missing 
+```{r}
+all_na = function(x){
+  if (sum(is.na(x)) ==0){
+    result = TRUE
+  } else{
+    result = FALSE
+  }
+  return (result)
+}
+
+train = train[, sapply(train, all_na)]
+test = test[, sapply(test, all_na)]
+
+```
+
+remove the unneccessary column 
+```{r}
+train = train[, -c(1:7)]
+test = test[, -c(1:7)]
+```
+
+create data partition for training 
+```{r}
+set.seed(1222)
+intrain = createDataPartition(y = train$classe, p = 0.7, list = FALSE )
+training_set = train[intrain, ]
+testing_set = train[-intrain, ]
+```
+
+Model 1: classification tree
+```{r}
+model_tree = train(classe~., data = training_set, method ="rpart" )
+pred_tree = predict(model_tree, testing_set)
+confusionMatrix(pred_tree, factor(testing_set$classe))
+```
+
+plot for the tree model 
+```{r}
+library(rattle)
+fancyRpartPlot(model_tree$finalModel)
+```
+
+method 2: Random Forest 
+```{r}
+
+set.seed(12345)
+control_rf = trainControl(method = "cv", number = 3, verboseIter = FALSE)
+model_rf <- train(classe ~ ., data = training_set, method = "rf",
+                          trControl = control_rf)
+
+pred_rf = predict(model_rf, testing_set)
+confusionMatrix(pred_rf, factor(testing_set$classe))
+```
+
+Due to the accuracy for both model, the accuracy of random forest model(0.993), which is much higher than the accuracy of classification tree (0.4965). Thus, the random forest model will be applied for the prediction 
+
+
+Below is the prediciton for the testing data 
+```{r}
+predict(model_rf, test)
+```
+
